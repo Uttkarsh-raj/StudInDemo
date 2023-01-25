@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:linkedin_login/linkedin_login.dart';
+import 'package:flutter_web_auth/flutter_web_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'config.dart' as Constant;
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -101,6 +105,55 @@ class _AuthPageState extends State<AuthPage> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class LinkedInLoginPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: RaisedButton(
+          child: Text('Sign in with LinkedIn'),
+          onPressed: () async {
+            // Get the client ID and redirect URL
+            final String clientId = Constant.Config().clientId;
+            final String redirectUrl = Constant.Config().redirectUrl // from config.dart
+
+            String url = 'https://www.linkedin.com/oauth/v2/authorization?'
+                'response_type=code&'
+                'client_id=$clientId&'
+                'redirect_uri=$redirectUrl&'
+                'state=random_string&'
+                'scope=r_liteprofile%20r_emailaddress';
+
+            // Start the OAuth authentication flow
+            final result = await FlutterWebAuth.authenticate(
+                url: url, callbackUrlScheme: 'YOUR_APP_SCHEME');
+
+            final code = Uri.parse(result).queryParameters['code'];
+
+            final response = await http.post(
+                'YOUR_BACKEND_URL/linkedin/exchange-token', // to be used later during app deployment on a server
+                body: {'code': code});
+
+            // Handle the response from the backend
+            if (response.statusCode == 200) {
+              // Save the access token to use for future requests
+              final data = jsonDecode(response.body);
+              final accessToken = data['access_token'];
+              saveAccessToken(accessToken);
+
+              // Navigate to the home page
+              Navigator.push(
+                  context, MaterialPageRoute(builder: (context) => HomePage()));
+            } else {
+              showErrorMessage('Failed to exchange code for access token');
+            }
+          },
         ),
       ),
     );
